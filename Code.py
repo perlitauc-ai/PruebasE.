@@ -2,17 +2,39 @@ import streamlit as st
 import pandas as pd
 import requests
 
-# URL del archivo CSV en GitHub (en formato RAW)
-CSV_URL = "https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/items.csv"
+# -------------------------------------------------------------------
+# 🔗 URL DEL CSV EN GITHUB (DEBE SER UN ENLACE RAW)
+# Ejemplo: https://raw.githubusercontent.com/usuario/repositorio/main/items.csv
+# -------------------------------------------------------------------
+CSV_URL = "PON_AQUI_TU_URL_RAW_DEL_CSV"
 
+# -------------------------------------------------------------------
+# 📌 Función para cargar el CSV desde GitHub con manejo de errores
+# -------------------------------------------------------------------
 @st.cache_data
-def cargar_items():
-    return pd.read_csv(CSV_URL)
+def cargar_items(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Lanza error si la URL no funciona
+        df = pd.read_csv(pd.compat.StringIO(response.text))
+        return df
+    except Exception as e:
+        st.error(f"Error cargando el archivo desde GitHub:\n{e}")
+        return None
 
-# Cargar preguntas
-items = cargar_items()
 
-# Estado inicial
+# -------------------------------------------------------------------
+# 📌 Cargar preguntas
+# -------------------------------------------------------------------
+items = cargar_items(CSV_URL)
+
+if items is None:
+    st.stop()  # Detiene la app si no hay datos
+
+
+# -------------------------------------------------------------------
+# 🔧 Inicializar estados de la app
+# -------------------------------------------------------------------
 if "indice" not in st.session_state:
     st.session_state.indice = 0
 
@@ -26,48 +48,73 @@ if "respuesta_usuario" not in st.session_state:
     st.session_state.respuesta_usuario = None
 
 
-st.title("🧠 Cuestionario sobre Pruebas Estadísticas")
+# -------------------------------------------------------------------
+# 🧠 TÍTULO
+# -------------------------------------------------------------------
+st.title("🧠 Cuestionario interactivo sobre Pruebas Estadísticas")
 
-# Si ya terminó todas las preguntas
+
+# -------------------------------------------------------------------
+# 🏁 Si ya terminó todas las preguntas
+# -------------------------------------------------------------------
 if st.session_state.indice >= len(items):
-    st.success(f"¡Has terminado el cuestionario! 🎉\n\n"
-               f"Respuestas correctas: **{st.session_state.correctas} / {len(items)}**")
+    st.success("🎉 ¡Has completado el cuestionario!")
+    st.write(f"Respuestas correctas: **{st.session_state.correctas} / {len(items)}**")
+    st.balloons()
     st.stop()
 
-# Obtener pregunta actual
-pregunta_actual = items.iloc[st.session_state.indice]
+
+# -------------------------------------------------------------------
+# 📌 Pregunta actual
+# -------------------------------------------------------------------
+pregunta = items.iloc[st.session_state.indice]
 
 st.subheader(f"Pregunta {st.session_state.indice + 1}")
-st.write(pregunta_actual["pregunta"])
+st.write(pregunta["pregunta"])
 
-# Opciones de respuesta
+
+# -------------------------------------------------------------------
+# 📌 Opciones
+# -------------------------------------------------------------------
 opciones = [
-    pregunta_actual["opcion_a"],
-    pregunta_actual["opcion_b"],
-    pregunta_actual["opcion_c"],
-    pregunta_actual["opcion_d"],
+    pregunta["opcion_a"],
+    pregunta["opcion_b"],
+    pregunta["opcion_c"],
+    pregunta["opcion_d"],
 ]
 
-respuesta = st.radio("Selecciona una respuesta:", opciones, index=None, key="respuesta_usuario")
+respuesta = st.radio(
+    "Selecciona una respuesta:",
+    opciones,
+    index=None,
+    key="respuesta_usuario"
+)
 
-# Botón para validar respuesta
+
+# -------------------------------------------------------------------
+# 🎯 Botón para validar la respuesta
+# -------------------------------------------------------------------
 if st.button("Responder"):
+
     if respuesta is None:
-        st.warning("Selecciona una respuesta antes de continuar.")
+        st.warning("Debes seleccionar una respuesta.")
     else:
         st.session_state.mostrar_feedback = True
 
-        if respuesta == pregunta_actual["respuesta_correcta"]:
+        if respuesta == pregunta["respuesta_correcta"]:
             st.success("✔️ ¡Correcto!")
-            st.info(pregunta_actual["retroalimentacion"])
+            st.info(pregunta["retroalimentacion"])
             st.session_state.correctas += 1
         else:
             st.error("❌ Incorrecto.")
-            st.info("Pista: " + pregunta_actual["retroalimentacion"])
+            st.info("Pista: " + pregunta["retroalimentacion"])
 
-# Botón para continuar si ya se respondió
+
+# -------------------------------------------------------------------
+# ⏭ Botón para continuar
+# -------------------------------------------------------------------
 if st.session_state.mostrar_feedback:
-    if st.button("Siguiente pregunta"):
+    if st.button("Siguiente"):
         st.session_state.indice += 1
         st.session_state.mostrar_feedback = False
         st.session_state.respuesta_usuario = None
