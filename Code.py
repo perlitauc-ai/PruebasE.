@@ -3,14 +3,14 @@ import pandas as pd
 import requests
 from io import StringIO
 
-# ---------------------------------------------------------
-# CONFIGURACIÓN DE LA APP
-# ---------------------------------------------------------
+# -----------------------------------------------
+# CONFIGURACIÓN
+# -----------------------------------------------
 st.set_page_config(page_title="Cuestionario de Pruebas Estadísticas", layout="centered")
 
-# ---------------------------------------------------------
-# FUNCIÓN: Cargar ítems desde GitHub RAW
-# ---------------------------------------------------------
+# -----------------------------------------------
+# FUNCIÓN PARA CARGAR ÍTEMS DESDE GITHUB RAW
+# -----------------------------------------------
 @st.cache_data
 def cargar_items(url):
     try:
@@ -22,58 +22,69 @@ def cargar_items(url):
         return None
 
 # ---------------------------------------------------------
-# URL del archivo CSV en GitHub (RAW)
-# ⚠️ REEMPLAZA ESTE LINK POR EL TUYO
+# ⚠️ REEMPLAZA ESTE LINK POR TU ENLACE RAW DE GITHUB
 # ---------------------------------------------------------
 URL_GITHUB_RAW = "https://raw.githubusercontent.com/usuario/repositorio/rama/items.csv"
 
 items = cargar_items(URL_GITHUB_RAW)
 
+# -----------------------------------------------
+# VALIDACIÓN DE CARGA
+# -----------------------------------------------
 if items is None:
     st.stop()
 
-# ---------------------------------------------------------
-# Inicializar estados
-# ---------------------------------------------------------
+if len(items) == 0:
+    st.error("El archivo CSV está vacío. Agrega ítems antes de continuar.")
+    st.stop()
+
+# -----------------------------------------------
+# INICIALIZAR VARIABLES DE SESIÓN
+# -----------------------------------------------
 if "indice" not in st.session_state:
     st.session_state.indice = 0
 
 if "correctas" not in st.session_state:
     st.session_state.correctas = 0
 
-# ---------------------------------------------------------
-# Mostrar progreso
-# ---------------------------------------------------------
-st.title("📊 Cuestionario para elegir una prueba estadística")
-st.progress(st.session_state.indice / len(items))
+total_preguntas = len(items)
 
-# ---------------------------------------------------------
-# Si ya terminó
-# ---------------------------------------------------------
-if st.session_state.indice >= len(items):
+# -----------------------------------------------
+# TÍTULO
+# -----------------------------------------------
+st.title("📊 Cuestionario para elegir una prueba estadística")
+
+# -----------------------------------------------
+# PROGRESO (protect against zero division)
+# -----------------------------------------------
+progreso = st.session_state.indice / total_preguntas
+st.progress(progreso)
+
+# -----------------------------------------------
+# FIN DEL CUESTIONARIO
+# -----------------------------------------------
+if st.session_state.indice >= total_preguntas:
     st.success("🎉 ¡Has terminado todas las preguntas!")
-    st.write(f"**Respuestas correctas: {st.session_state.correctas} de {len(items)}**")
+    st.write(f"**Respuestas correctas: {st.session_state.correctas} de {total_preguntas}**")
     st.stop()
 
-# ---------------------------------------------------------
-# Mostrar ítem actual
-# ---------------------------------------------------------
+# -----------------------------------------------
+# MOSTRAR PREGUNTA ACTUAL
+# -----------------------------------------------
 fila = items.iloc[st.session_state.indice]
 
 pregunta = fila["pregunta"]
-op1 = fila["opcion1"]
-op2 = fila["opcion2"]
-op3 = fila["opcion3"]
-correcta = fila["correcta"]  # texto EXACTO de la opción correcta
+opciones = [fila["opcion1"], fila["opcion2"], fila["opcion3"]]
+correcta = fila["correcta"]
 
 st.subheader(f"Pregunta {st.session_state.indice + 1}")
 st.write(pregunta)
 
-respuesta = st.radio("Selecciona tu respuesta:", [op1, op2, op3])
+respuesta = st.radio("Selecciona tu respuesta:", opciones)
 
-# ---------------------------------------------------------
-# Botón para enviar respuesta
-# ---------------------------------------------------------
+# -----------------------------------------------
+# BOTÓN PARA ENVIAR RESPUESTA
+# -----------------------------------------------
 if st.button("Enviar respuesta"):
     if respuesta == correcta:
         st.success("✅ ¡Correcto!")
@@ -83,4 +94,3 @@ if st.button("Enviar respuesta"):
         st.error("❌ Incorrecto. Intenta de nuevo.")
 
     st.rerun()
-
