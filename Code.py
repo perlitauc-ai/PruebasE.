@@ -1,121 +1,86 @@
 import streamlit as st
 import pandas as pd
 import requests
+from io import StringIO
 
-# -------------------------------------------------------------------
-# 🔗 URL DEL CSV EN GITHUB (DEBE SER UN ENLACE RAW)
-# Ejemplo: https://raw.githubusercontent.com/usuario/repositorio/main/items.csv
-# -------------------------------------------------------------------
-CSV_URL = "PON_AQUI_TU_URL_RAW_DEL_CSV"
+# ---------------------------------------------------------
+# CONFIGURACIÓN DE LA APP
+# ---------------------------------------------------------
+st.set_page_config(page_title="Cuestionario de Pruebas Estadísticas", layout="centered")
 
-# -------------------------------------------------------------------
-# 📌 Función para cargar el CSV desde GitHub con manejo de errores
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# FUNCIÓN: Cargar ítems desde GitHub RAW
+# ---------------------------------------------------------
 @st.cache_data
 def cargar_items(url):
     try:
-        response = requests.get(url)
-        response.raise_for_status()  # Lanza error si la URL no funciona
-        df = pd.read_csv(pd.compat.StringIO(response.text))
+        contenido = requests.get(url).text
+        df = pd.read_csv(StringIO(contenido))
         return df
     except Exception as e:
-        st.error(f"Error cargando el archivo desde GitHub:\n{e}")
+        st.error(f"Error cargando los datos: {e}")
         return None
 
+# ---------------------------------------------------------
+# URL del archivo CSV en GitHub (RAW)
+# ⚠️ REEMPLAZA ESTE LINK POR EL TUYO
+# ---------------------------------------------------------
+URL_GITHUB_RAW = "https://raw.githubusercontent.com/usuario/repositorio/rama/items.csv"
 
-# -------------------------------------------------------------------
-# 📌 Cargar preguntas
-# -------------------------------------------------------------------
-items = cargar_items(CSV_URL)
+items = cargar_items(URL_GITHUB_RAW)
 
 if items is None:
-    st.stop()  # Detiene la app si no hay datos
+    st.stop()
 
-
-# -------------------------------------------------------------------
-# 🔧 Inicializar estados de la app
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# Inicializar estados
+# ---------------------------------------------------------
 if "indice" not in st.session_state:
     st.session_state.indice = 0
 
 if "correctas" not in st.session_state:
     st.session_state.correctas = 0
 
-if "mostrar_feedback" not in st.session_state:
-    st.session_state.mostrar_feedback = False
+# ---------------------------------------------------------
+# Mostrar progreso
+# ---------------------------------------------------------
+st.title("📊 Cuestionario para elegir una prueba estadística")
+st.progress(st.session_state.indice / len(items))
 
-if "respuesta_usuario" not in st.session_state:
-    st.session_state.respuesta_usuario = None
-
-
-# -------------------------------------------------------------------
-# 🧠 TÍTULO
-# -------------------------------------------------------------------
-st.title("🧠 Cuestionario interactivo sobre Pruebas Estadísticas")
-
-
-# -------------------------------------------------------------------
-# 🏁 Si ya terminó todas las preguntas
-# -------------------------------------------------------------------
+# ---------------------------------------------------------
+# Si ya terminó
+# ---------------------------------------------------------
 if st.session_state.indice >= len(items):
-    st.success("🎉 ¡Has completado el cuestionario!")
-    st.write(f"Respuestas correctas: **{st.session_state.correctas} / {len(items)}**")
-    st.balloons()
+    st.success("🎉 ¡Has terminado todas las preguntas!")
+    st.write(f"**Respuestas correctas: {st.session_state.correctas} de {len(items)}**")
     st.stop()
 
+# ---------------------------------------------------------
+# Mostrar ítem actual
+# ---------------------------------------------------------
+fila = items.iloc[st.session_state.indice]
 
-# -------------------------------------------------------------------
-# 📌 Pregunta actual
-# -------------------------------------------------------------------
-pregunta = items.iloc[st.session_state.indice]
+pregunta = fila["pregunta"]
+op1 = fila["opcion1"]
+op2 = fila["opcion2"]
+op3 = fila["opcion3"]
+correcta = fila["correcta"]  # texto EXACTO de la opción correcta
 
 st.subheader(f"Pregunta {st.session_state.indice + 1}")
-st.write(pregunta["pregunta"])
+st.write(pregunta)
 
+respuesta = st.radio("Selecciona tu respuesta:", [op1, op2, op3])
 
-# -------------------------------------------------------------------
-# 📌 Opciones
-# -------------------------------------------------------------------
-opciones = [
-    pregunta["opcion_a"],
-    pregunta["opcion_b"],
-    pregunta["opcion_c"],
-    pregunta["opcion_d"],
-]
-
-respuesta = st.radio(
-    "Selecciona una respuesta:",
-    opciones,
-    index=None,
-    key="respuesta_usuario"
-)
-
-
-# -------------------------------------------------------------------
-# 🎯 Botón para validar la respuesta
-# -------------------------------------------------------------------
-if st.button("Responder"):
-
-    if respuesta is None:
-        st.warning("Debes seleccionar una respuesta.")
-    else:
-        st.session_state.mostrar_feedback = True
-
-        if respuesta == pregunta["respuesta_correcta"]:
-            st.success("✔️ ¡Correcto!")
-            st.info(pregunta["retroalimentacion"])
-            st.session_state.correctas += 1
-        else:
-            st.error("❌ Incorrecto.")
-            st.info("Pista: " + pregunta["retroalimentacion"])
-
-
-# -------------------------------------------------------------------
-# ⏭ Botón para continuar
-# -------------------------------------------------------------------
-if st.session_state.mostrar_feedback:
-    if st.button("Siguiente"):
+# ---------------------------------------------------------
+# Botón para enviar respuesta
+# ---------------------------------------------------------
+if st.button("Enviar respuesta"):
+    if respuesta == correcta:
+        st.success("✅ ¡Correcto!")
+        st.session_state.correctas += 1
         st.session_state.indice += 1
-        st.session_state.mostrar_feedback = False
-        st.session_state.respuesta_usuario = None
-        st.rerun()
+    else:
+        st.error("❌ Incorrecto. Intenta de nuevo.")
+
+    st.rerun()
+
